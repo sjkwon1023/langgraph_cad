@@ -790,7 +790,7 @@ function GraphEditorCore() {
           </button>
           <button
             onClick={() => {
-              alert('GitHub link is being prepared.');
+              window.open('https://github.com/sjkwon1023/langgraph_cad/tree/main', '_blank');
             }}
             style={{
               padding: '10px 15px',
