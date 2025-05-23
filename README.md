@@ -1,4 +1,5 @@
-# [English version](./README_en.md)
+# English version
+[Click here](./README_en.md)
 
 # 웹페이지 링크
 
