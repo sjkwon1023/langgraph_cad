@@ -92,7 +92,7 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
     }
   }
 
-  // Handle remaining edges, excluding edges connected to text nodes and start node
+  // Handle edges, excluding edges connected to text nodes and start node
   const edgesToProcess = edges.filter(edge => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
@@ -101,7 +101,65 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
            sourceNode?.data.type !== 'start';
   });
 
-  edgesToProcess.forEach((edge) => {
+  // Separate conditional edges
+  const conditionalEdges = edgesToProcess.filter(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    return sourceNode && sourceNode.data.type === 'conditional_edge';
+  });
+
+  // Group conditional edges by their conditional edge node
+  const conditionalEdgeGroups = conditionalEdges.reduce((groups, edge) => {
+    const conditionalNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+    
+    // Find the actual source node (the node connected to the conditional edge node)
+    const actualSourceEdge = edges.find(e => e.target === edge.source);
+    const actualSourceNode = actualSourceEdge ? nodes.find(n => n.id === actualSourceEdge.source) : null;
+    
+    if (actualSourceNode && targetNode && conditionalNode) {
+      const sourceName = actualSourceNode.data.codeIdentifier || actualSourceNode.id;
+      const targetName = targetNode.data.codeIdentifier || targetNode.id;
+      
+      // Use conditional node ID as the key for grouping
+      if (!groups[conditionalNode.id]) {
+        groups[conditionalNode.id] = {
+          sourceNode: sourceName,
+          targets: {}
+        };
+      }
+      groups[conditionalNode.id].targets[targetName] = targetName;
+    }
+    return groups;
+  }, {});
+
+  // Add conditional edges
+  Object.entries(conditionalEdgeGroups).forEach(([conditionalNodeId, { sourceNode, targets }], index) => {
+    const funcName = `conditional_function_${index + 1}`;
+    
+    lines.push(
+      '',
+      `${graphName}.add_conditional_edges(`,
+      `    "${sourceNode}",`,
+      `    ${funcName},`,
+      `    {`,
+      ...Object.entries(targets).map(([key, value]) => 
+        `        "${key}": "${value}"`
+      ),
+      `    }`,
+      `)`
+    );
+  });
+
+  // Add regular edges (excluding conditional edges)
+  const regularEdges = edgesToProcess.filter(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+    return sourceNode && targetNode && 
+           sourceNode.data.type !== 'conditional_edge' && 
+           targetNode.data.type !== 'conditional_edge';
+  });
+
+  regularEdges.forEach((edge) => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
     if (sourceNode && targetNode) {
