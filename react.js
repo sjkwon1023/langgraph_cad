@@ -79,6 +79,12 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
       );
     });
 
+  // START, END는 쌍따옴표 없이 대문자로 출력
+  const formatNodeName = (name) => {
+    if (name === 'START' || name === 'END') return name;
+    return `"${name}"`;
+  };
+
   // Find the node connected to START node
   const startNode = nodes.find(node => node.data.type === 'start');
   if (startNode) {
@@ -87,7 +93,7 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
       const targetNode = nodes.find(node => node.id === startEdge.target);
       if (targetNode) {
         const targetNodeName = targetNode.data.codeIdentifier || targetNode.id;
-        lines.push(`${graphName}.add_edge("START", "${targetNodeName}")`);
+        lines.push(`${graphName}.add_edge(START, ${formatNodeName(targetNodeName)})`);
       }
     }
   }
@@ -135,15 +141,14 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
   // Add conditional edges
   Object.entries(conditionalEdgeGroups).forEach(([conditionalNodeId, { sourceNode, targets }], index) => {
     const funcName = `conditional_function_${index + 1}`;
-    
     lines.push(
       '',
       `${graphName}.add_conditional_edges(`,
-      `    "${sourceNode}",`,
+      `    ${formatNodeName(sourceNode)},`,
       `    ${funcName},`,
       `    {`,
       ...Object.entries(targets).map(([key, value]) => 
-        `        "${key}": "${value}"`
+        `        ${formatNodeName(key)}: ${formatNodeName(value)}`
       ),
       `    }`,
       `)`
@@ -165,7 +170,7 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
     if (sourceNode && targetNode) {
       const sourceName = sourceNode.data.codeIdentifier || sourceNode.id;
       const targetName = targetNode.data.codeIdentifier || targetNode.id;
-      lines.push(`${graphName}.add_edge("${sourceName}", "${targetName}")`);
+      lines.push(`${graphName}.add_edge(${formatNodeName(sourceName)}, ${formatNodeName(targetName)})`);
     }
   });
 
