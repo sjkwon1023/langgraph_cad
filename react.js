@@ -81,7 +81,7 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
 
   // START, END는 쌍따옴표 없이 대문자로 출력
   const formatNodeName = (name) => {
-    if (name === 'START' || name === 'END') return name;
+    if (name === 'START' || name === 'end' || name === 'END') return 'END';
     return `"${name}"`;
   };
 
