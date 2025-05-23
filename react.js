@@ -56,7 +56,7 @@ const sanitizeIdentifier = (baseName, existingNodes, currentNodeIdToExclude = nu
 };
 
 // Helper to format graph code
-function formatGraphCode(nodes, edges, entryPointCodeIdentifier, graphName) {
+function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
   const lines = [
     'from langgraph import StateGraph, AgentState',
     '',
@@ -79,100 +79,39 @@ function formatGraphCode(nodes, edges, entryPointCodeIdentifier, graphName) {
       );
     });
 
-    // Handle edges, excluding edges connected to text nodes
-    const edgesToProcess = edges.filter(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
-      return sourceNode && targetNode && 
-             sourceNode.data.type !== 'text' && 
-             targetNode.data.type !== 'text';
-    });
+  // Find the node connected to START node
+  const startNode = nodes.find(node => node.data.type === 'start');
+  if (startNode) {
+    const startEdge = edges.find(edge => edge.source === startNode.id);
+    if (startEdge) {
+      const targetNode = nodes.find(node => node.id === startEdge.target);
+      if (targetNode) {
+        const targetNodeName = targetNode.data.codeIdentifier || targetNode.id;
+        lines.push(`${graphName}.set_entry_point("${targetNodeName}")`);
+      }
+    }
+  }
 
-    // Separate conditional edges
-    const conditionalEdges = edgesToProcess.filter(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      return sourceNode && sourceNode.data.type === 'conditional_edge';
-    });
+  // Handle remaining edges, excluding edges connected to text nodes and start node
+  const edgesToProcess = edges.filter(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+    return sourceNode?.data.type !== 'text' && 
+           targetNode?.data.type !== 'text' &&
+           sourceNode?.data.type !== 'start';
+  });
 
-    // For regular edges, exclude any edges connected to conditional_edge nodes
-    const regularEdges = edgesToProcess.filter(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
-      return sourceNode && targetNode && 
-             sourceNode.data.type !== 'conditional_edge' && 
-             targetNode.data.type !== 'conditional_edge';
-    });
-
-  // Add regular edges
-  regularEdges.forEach((edge) => {
+  edgesToProcess.forEach((edge) => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
     if (sourceNode && targetNode) {
-      const sourceNameInCode = sourceNode.data.type === 'start' || sourceNode.data.type === 'end' 
-        ? sourceNode.data.type.toUpperCase() 
-        : (sourceNode.data.codeIdentifier || sourceNode.id);
-      const targetNameInCode = targetNode.data.type === 'start' || targetNode.data.type === 'end'
-        ? targetNode.data.type.toUpperCase()
-        : (targetNode.data.codeIdentifier || targetNode.id);
-      lines.push(
-        `${graphName}.add_edge("${sourceNameInCode}", "${targetNameInCode}")`
-      );
+      const sourceName = sourceNode.data.codeIdentifier || sourceNode.id;
+      const targetName = targetNode.data.codeIdentifier || targetNode.id;
+      lines.push(`${graphName}.add_edge("${sourceName}", "${targetName}")`);
     }
   });
 
-  // Group conditional edges by their conditional edge node
-  const conditionalEdgeGroups = conditionalEdges.reduce((groups, edge) => {
-    const conditionalNode = nodes.find(n => n.id === edge.source);
-    const targetNode = nodes.find(n => n.id === edge.target);
-    
-    // Find the actual source node (the node connected to the conditional edge node)
-    const actualSourceEdge = edges.find(e => e.target === edge.source);
-    const actualSourceNode = actualSourceEdge ? nodes.find(n => n.id === actualSourceEdge.source) : null;
-    
-    if (actualSourceNode && targetNode && conditionalNode) {
-      const sourceNameInCode = actualSourceNode.data.type === 'start' || actualSourceNode.data.type === 'end'
-        ? actualSourceNode.data.type.toUpperCase()
-        : (actualSourceNode.data.codeIdentifier || actualSourceNode.id);
-      const targetNameInCode = targetNode.data.type === 'start' || targetNode.data.type === 'end'
-        ? targetNode.data.type.toUpperCase()
-        : (targetNode.data.codeIdentifier || targetNode.id);
-      
-      // Use conditional node ID as the key for grouping
-      if (!groups[conditionalNode.id]) {
-        groups[conditionalNode.id] = {
-          sourceNode: sourceNameInCode,
-          conditionalNode: conditionalNode,
-          targets: {}
-        };
-      }
-      groups[conditionalNode.id].targets[targetNameInCode] = targetNameInCode;
-    }
-    return groups;
-  }, {});
-
-  // Add conditional edges
-  Object.entries(conditionalEdgeGroups).forEach(([conditionalNodeId, { sourceNode, conditionalNode, targets }], index) => {
-    const funcName = `condition_function_${index + 1}`;
-    
-    lines.push(
-      '',
-      `${graphName}.add_conditional_edges(`,
-      `    "${sourceNode}",`,
-      `    ${funcName},`,
-      `    {`,
-      ...Object.entries(targets).map(([key, value]) => 
-        `        "${key}": "${value}"`
-      ),
-      `    }`,
-      `)`
-    );
-  });
-
-  if (entryPointCodeIdentifier) {
-    lines.push(`${graphName}.set_entry_point("${entryPointCodeIdentifier}")`);
-  }
-
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 const nodeTypesDefinition = {
