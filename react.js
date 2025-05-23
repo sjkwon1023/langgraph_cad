@@ -87,7 +87,7 @@ function formatGraphCode(nodes, edges, entryPointCodeId, graphName) {
       const targetNode = nodes.find(node => node.id === startEdge.target);
       if (targetNode) {
         const targetNodeName = targetNode.data.codeIdentifier || targetNode.id;
-        lines.push(`${graphName}.set_entry_point("${targetNodeName}")`);
+        lines.push(`${graphName}.add_edge("START", "${targetNodeName}")`);
       }
     }
   }
